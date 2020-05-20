@@ -7,6 +7,7 @@ import re
 import datetime
 import urllib3
 import uuid
+import os
 from spider import db
 from .models import Articles
 
@@ -79,6 +80,20 @@ def getParams(url):
     return params
 
 
+def writeLog(msg):
+    now = datetime.datetime.now()
+    path = "{0}/logs/{1}".format(os.path.abspath(os.path.dirname(os.path.dirname(__file__))),
+                                 now.strftime("%Y%m"))
+    if not os.path.exists(path):
+        os.makedirs(path)
+    filename = "{0}/{1}.log".format(path, now.strftime("%d"))
+    f = open(filename, 'a', encoding='utf-8')
+    content = "[{0}]:{1}\r\n".format(now.strftime("%Y-%m-%d %H:%M:%S"), msg)
+    print(content)
+    f.write(content)
+    f.close()
+
+
 def readList(params):
     # 增加重连次数
     requests.adapters.DEFAULT_RETRIES = 5
@@ -137,12 +152,10 @@ def readList(params):
             db.session.add(article)
         db.session.commit()
         if params["offset"] != -1:
-            print('[', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ']：第', int(
-                params["offset"]/10), '页读取完成，10s后读取下一页')
+            writeLog('第{0}页读取完成，10s后读取下一页'.format(int(params["offset"]/10)))
             time.sleep(10)
             readList(params)
         else:
-            print('[', datetime.datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"), ']：读取完成')
+            writeLog('读取完成')
     else:
         print('地址失效')
