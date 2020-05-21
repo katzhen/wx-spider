@@ -3,10 +3,8 @@
   ```shell
     pip install -r requirements
   ```
-  若下载超时，修改pip源
-  ```
-    %HOMEPATH%\pip\pip.ini
-    
+  若下载超时，修改pip源```%HOMEPATH%\pip\pip.ini```
+  ```  
     [global]
     index-url = http://mirrors.aliyun.com/pypi/simple/
     [install]
