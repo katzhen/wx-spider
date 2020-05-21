@@ -1,18 +1,31 @@
 # 导入Flask类
 from flask import request
 from spider import app, spider
-import uuid
+import json
 
 # route()方法用于设定路由；类似于spring路由配置
 @app.route('/', methods=['POST'])
 def index():
-    url = request.form["url"]
-    params = spider.getParams(url)
+    url = ""
+    if request.json.__contains__("url"):
+        url = request.json["url"]
+    else:
+        return '参数不能为空'
+    page = 0
+    if request.json.__contains__("page"):
+        page = int(request.json["page"])
+    params = spider.getParams(url, page)
     if isinstance(params, str):
         return params
     else:
-        spider.readList(params)
-        return '抓取成功'
+        result = spider.readList(params)
+        return result
+
+
+@app.route('/details', methods=['POST'])
+def details():
+    result = spider.details()
+    return result
 
 
 if __name__ == '__main__':

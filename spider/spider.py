@@ -8,6 +8,7 @@ import datetime
 import urllib3
 import uuid
 import os
+from lxml import etree
 from spider import db
 from .models import Articles
 
@@ -37,40 +38,49 @@ params = {
 # 解析url和页面内容组装请求列表的参数
 
 
-def getParams(url):
+def getParams(url, page):
+
+    params["offset"] = page * 10
+
     req = requests.get(url, headers=headers, verify=False)
     req.encoding = "UTF-8"
     text = req.text
+
     biz_str = re.search('&__biz=([^&]*)', url)
     if biz_str:
         params["__biz"] = biz_str.group().replace(
             '&__biz=', '')
     else:
         return '__biz匹配失败'
+
     scene_str = re.search('&scene=([^&]*)', url)
     if scene_str:
         params["scene"] = int(scene_str.group().replace(
             '&scene=', ''))
     else:
         return 'scene匹配失败'
+
     uin_str = re.search('var uin = \"([^\"]*)', text)
     if uin_str:
         params["uin"] = uin_str.group().replace(
             'var uin = \"', '')
     else:
         return 'uin匹配失败'
+
     key_str = re.search('var key = \"([^\"]*)', text)
     if key_str:
         params["key"] = key_str.group().replace(
             'var key = \"', '')
     else:
         return 'key匹配失败'
+
     pass_ticket_str = re.search('var pass_ticket = \"([^\"]*)', text)
     if pass_ticket_str:
         params["pass_ticket"] = pass_ticket_str.group().replace(
             'var pass_ticket = \"', '')
     else:
         return 'pass_ticket匹配失败'
+
     appmsg_token_str = re.search('window.appmsg_token = \"([^\"]*)', text)
     if appmsg_token_str:
         params["appmsg_token"] = appmsg_token_str.group().replace(
@@ -88,13 +98,14 @@ def writeLog(msg):
         os.makedirs(path)
     filename = "{0}/{1}.log".format(path, now.strftime("%d"))
     f = open(filename, 'a', encoding='utf-8')
-    content = "[{0}]:{1}\r\n".format(now.strftime("%Y-%m-%d %H:%M:%S"), msg)
+    content = "[{0}]:{1}\r\n".format(now.strftime("%H:%M:%S"), msg)
     print(content)
     f.write(content)
     f.close()
 
 
 def readList(params):
+    returnMsg = ''
     # 增加重连次数
     requests.adapters.DEFAULT_RETRIES = 5
     session = requests.session()
@@ -148,14 +159,43 @@ def readList(params):
                 publish_time=item["datetime"].strftime("%Y-%m-%d %H:%M:%S"),
                 create_time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             )
-            # print(article)
             db.session.add(article)
         db.session.commit()
+
         if params["offset"] != -1:
             writeLog('第{0}页读取完成，10s后读取下一页'.format(int(params["offset"]/10)))
             time.sleep(10)
             readList(params)
         else:
-            writeLog('读取完成')
+            returnMsg = '读取完成'
+            writeLog(returnMsg)
+            return returnMsg
     else:
-        print('地址失效')
+        returnMsg = '地址失效,offset:{0}'.format(params["offset"])
+        writeLog(returnMsg)
+        return returnMsg
+
+# 抓取详情
+
+
+def details():
+    # returnMsg = ""
+    url = 'https://mp.weixin.qq.com/s/12KKR0V7SoOKdNigek_SOQ'
+    # 增加重连次数
+    requests.adapters.DEFAULT_RETRIES = 5
+    session = requests.session()
+    # 关闭多余连接
+    session.keep_alive = False
+    req = requests.get(url, headers=headers, verify=False)
+    req.encoding = "UTF-8"
+    result = etree.HTML(req.text)
+    jscontent = result.xpath(
+        "//div[@id='js_content']")[0]
+    bts = etree.tostring(jscontent, method='xml')
+    html = str(bts, encoding="utf-8").replace(
+        ' id="js_content" style="visibility: hidden;"', ' id="js_content"')
+    f = open('1.html', 'w', encoding='utf-8')
+    f.write(html)
+    f.close()
+
+    return html
