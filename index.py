@@ -3,6 +3,7 @@ from flask import request
 from spider import app, spider
 import json
 
+
 # route()方法用于设定路由；类似于spring路由配置
 @app.route('/', methods=['POST'])
 def index():

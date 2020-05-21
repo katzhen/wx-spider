@@ -15,7 +15,8 @@ from .models import Articles
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/81.0.4044.138 Safari/537.36 "
 }
 
 # 获取列表的参数
@@ -97,6 +98,7 @@ def writeLog(msg):
     if not os.path.exists(path):
         os.makedirs(path)
     filename = "{0}/{1}.log".format(path, now.strftime("%d"))
+
     f = open(filename, 'a', encoding='utf-8')
     content = "[{0}]:{1}\r\n".format(now.strftime("%H:%M:%S"), msg)
     print(content)
@@ -105,7 +107,6 @@ def writeLog(msg):
 
 
 def readList(params):
-    returnMsg = ''
     # 增加重连次数
     requests.adapters.DEFAULT_RETRIES = 5
     session = requests.session()
@@ -115,7 +116,7 @@ def readList(params):
                        headers=headers, params=params, verify=False)
     req.encoding = "UTF-8"
     result = json.loads(req.text)
-    list = []
+    article_list = []
     if result["ret"] == 0:
         if result["can_msg_continue"] == 1:
             # 读取下一页
@@ -125,30 +126,22 @@ def readList(params):
         general_msg_list = json.loads(result["general_msg_list"])
         for item in general_msg_list["list"]:
             comm_msg_info = item['comm_msg_info']
-            if item.__contains__('app_msg_ext_info') == False:
+            if not item.__contains__('app_msg_ext_info'):
                 continue
             ext_info = item['app_msg_ext_info']
-            id = comm_msg_info["id"]
+            article_id = comm_msg_info["id"]
             dt_str = comm_msg_info["datetime"]
             dt = datetime.datetime.fromtimestamp(int(dt_str))
-            con_dict = {}
-            con_dict["id"] = id
-            con_dict["datetime"] = dt
-            con_dict["title"] = ext_info["title"]
-            con_dict["url"] = ext_info["content_url"]
-            con_dict["cover"] = ext_info["cover"]
-            list.append(con_dict)
+            con_dict = {"id": article_id, "datetime": dt, "title": ext_info["title"], "url": ext_info["content_url"],
+                        "cover": ext_info["cover"]}
+            article_list.append(con_dict)
             if ext_info["is_multi"] == 1:
                 for multi_item in ext_info["multi_app_msg_item_list"]:
-                    item_dict = {}
-                    item_dict["id"] = id
-                    item_dict["datetime"] = dt
-                    item_dict["title"] = multi_item["title"]
-                    item_dict["url"] = multi_item["content_url"]
-                    item_dict["cover"] = multi_item["cover"]
-                    list.append(item_dict)
+                    item_dict = {"id": article_id, "datetime": dt, "title": multi_item["title"],
+                                 "url": multi_item["content_url"], "cover": multi_item["cover"]}
+                    article_list.append(item_dict)
 
-        for item in list:
+        for item in article_list:
             article = Articles(
                 id=str(uuid.uuid4()),
                 original_id=item["id"],
@@ -167,19 +160,18 @@ def readList(params):
             time.sleep(10)
             readList(params)
         else:
-            returnMsg = '读取完成'
-            writeLog(returnMsg)
-            return returnMsg
+            message = '读取完成'
+            writeLog(message)
+            return message
     else:
-        returnMsg = '地址失效,offset:{0}'.format(params["offset"])
-        writeLog(returnMsg)
-        return returnMsg
+        message = '地址失效,offset:{0}'.format(params["offset"])
+        writeLog(message)
+        return message
 
 # 抓取详情
 
 
 def details():
-    # returnMsg = ""
     url = 'https://mp.weixin.qq.com/s/12KKR0V7SoOKdNigek_SOQ'
     # 增加重连次数
     requests.adapters.DEFAULT_RETRIES = 5
@@ -189,9 +181,9 @@ def details():
     req = requests.get(url, headers=headers, verify=False)
     req.encoding = "UTF-8"
     result = etree.HTML(req.text)
-    jscontent = result.xpath(
+    content = result.xpath(
         "//div[@id='js_content']")[0]
-    bts = etree.tostring(jscontent, method='xml')
+    bts = etree.tostring(content, method='xml')
     html = str(bts, encoding="utf-8").replace(
         ' id="js_content" style="visibility: hidden;"', ' id="js_content"')
     f = open('1.html', 'w', encoding='utf-8')
